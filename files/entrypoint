@@ -52,12 +52,19 @@ if [ ! -f "$userConfFinalPath" ]; then
             echo "$user" >> "$userConfFinalPath"
         done
     fi
+    touch /var/log/sftp.log
+    /etc/init.d/rsyslog start 
 
     # Check that we have users in config
     if [ -f "$userConfFinalPath" ] && [ "$(wc -l < "$userConfFinalPath")" -gt 0 ]; then
         # Import users from final conf file
         while IFS= read -r user || [[ -n "$user" ]]; do
             create-sftp-user "$user"
+            username=$(echo $user| sed -e s'/::[0-9]*//')
+    	    mkdir /home/$username/dev
+            chmod 0755 /home/$username/dev
+            ln -f /home/sftp.log.socket /home/$username/dev/log
+            
         done < "$userConfFinalPath"
     elif $startSshd; then
         log "FATAL: No users provided!"
@@ -88,7 +95,8 @@ fi
 
 if $startSshd; then
     log "Executing sshd"
-    exec /usr/sbin/sshd -D -e
+    #exec /usr/sbin/sshd -D -e
+    exec /usr/bin/supervisord
 else
     log "Executing $*"
     exec "$@"
